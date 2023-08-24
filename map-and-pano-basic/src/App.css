@@ -1,0 +1,42 @@
+.container {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+
+}
+
+.coordinate-container {
+    position: absolute;
+    z-index: 100;
+    background: wheat;
+    padding: 10px;
+    left: 0;
+    bottom: 0;
+}
+
+.map-buttons {
+    position: absolute;
+    z-index: 100;
+    padding: 10px;
+    top: 0;
+    left: 0;
+}
+
+.pano-buttons {
+    position: absolute;
+    z-index: 100;
+    padding: 10px;
+    top: 0;
+    right: 0;
+}
+
+button {
+    margin-left: 5px;
+}
+
+.handle-bar,
+.handle-bar:active,
+.handle-bar:hover,
+.handle-bar.handle-bar_clone {
+    background: purple !important;
+}
