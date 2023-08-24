@@ -9,12 +9,11 @@ import "m-react-splitters/lib/splitters.css";
 import { toLonLat } from 'ol/proj';
 import Draw, { DrawEvent } from 'ol/interaction/Draw';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
-import Text from 'ol/style/Text';
 import { never } from 'ol/events/condition';
 import { getArea } from 'ol/sphere';
 import VectorSource from 'ol/source/Vector';
 import VectorLayer from 'ol/layer/Vector';
-import { AnkaDraw, DrawPlugin, PanoGL, ScalablePlugin, SoftTextPlugin } from './easy-pano-import';
+import { AnkaDraw, DrawPlugin, ScalablePlugin, SoftTextPlugin } from './easy-pano-import';
 import Feature from 'ol/Feature';
 import Geometry from 'ol/geom/Geometry';
 import Point from 'ol/geom/Point';
@@ -45,6 +44,7 @@ function App() {
   let softtext = window as any
   let scalable = window as any
   const PanoGl = (window as any).AnkaPanAPI.PanoGLV2;
+  let panogl: any
 
 
   //panolook için
@@ -67,8 +67,9 @@ function App() {
     fov: 0.8333333333333334
   })
 
-  let panogl: any
 
+  //Harita altlığı oluşturduğumuz yer. 
+  //Burada custom bir altlık ya da hazır openlayers, google vs. altlıkları kullanılabilir.
   useEffect(() => {
     const map = new Map({
       layers: [
@@ -90,6 +91,8 @@ function App() {
 
 
     if (!PanoGl._instances) {
+
+      //panoramanın oluşacağı div'i content'e ekleyip, servisleri tanımladığımız alan
       panogl = new PanoGl({
         content: "panodiv",
         aroundService: "https://react-gis.ankageo.com/pano/around",
@@ -113,15 +116,16 @@ function App() {
       panogl.gotoLocation(24, 24);
 
       panogl.getTilePlugin()._zoomLevels = [0.9, 0.6, 0.3]
+
+      //açı değişimi, lokasyon değişimi, ölçüm yapma vs. işlemlerini gerçekleştirebilmek için api'de var olan event'ları tanımlayıp kullanabiliyoruz.
       panogl.addEvent(PanoGl.SETUP_COMPLETE, null, onSetupComplete);
       panogl.addEvent(PanoGl.LOCATION_CHANGE, null, onLocationChange);
-
       panogl.addEvent(PanoGl.VIEW_ANGLE_CHANGE, null, onViewAngleChange);
-
       panogl.addEvent(PanoGl.MOUSE_MOVE_ON_GROUND, null, onCursorMoveGround);
       panogl.addEvent(AnkaDraw.DrawPlugin.STATUS_CHANGE, null, onDrawStatusChange);
       //
       panogl.start();
+
       setPano(panogl);
     }
 
@@ -181,7 +185,6 @@ function App() {
  */
   function onLocationChange(event: any) {
     setPanoCoord({ lat: event.lat, lon: event.lon })
-    // dispatch(setCoordPanoToMap({ lat: event.lat, lon: event.lon }))
   }
 
   function onSetupComplete(event: any) {
@@ -190,14 +193,15 @@ function App() {
     }
   }
 
+
   /**
    * Panorama açısı için.
    */
   function onViewAngleChange(e: any) {
     let fov = panogl.controller.getFov();
     setAngle({ rotationX: e.rotationX, rotationY: e.rotationY, fov: fov })
-    // dispatch(setViewAngle({ rotationX: e.rotationX, rotationY: e.rotationY, fov: fov }))
   }
+
 
   /**
    * Panorama üzerinde imlecin hareketini dinleyen fonksiyon.
@@ -205,12 +209,11 @@ function App() {
   function onCursorMoveGround(event: any) {
   }
 
+
   /**
 * Ölçüm durumlarını dinleyen fonksiyon. 
 */
   function onDrawStatusChange(event: any) {
-    console.log(event);
-
     if (event.status === 'FINISHED' && event.isSuccessful) {
       // dispatch(setPanoDrawState(PanoDrawStateType.FINISH));
     }
@@ -250,7 +253,9 @@ function App() {
     setCoordinates(coord.join(' , '))
   }
 
-
+  //Çoklu ekran aç-kapa fonksiyonu
+  //Burada var olan panoramaya bağlı birden çok panoramik görüntü oluşturma örneği bulunuyor.
+  //Panoramada geçerli ışık ayarı, açı, lokasyon değişimi, ölçüm yapma vs. tüm fonksiyonları diğer görüntülerle eşzamanlı ya da bağımsız yönetebiliyoruz.
   const openCloseMultiDisplay = () => {
     const PanoGl = (window as any).AnkaPanAPI.PanoGLV2;
     if (pano && PanoGl._instances.length !== 3) {
@@ -273,7 +278,7 @@ function App() {
     setfirst(!first);
   };
 
-  //map draw example
+  //Haritada ölçüm örneği
   const drawPolygon = () => {
     let draw = new Draw({
       source: source,
@@ -318,20 +323,19 @@ function App() {
     }
   }
 
+  //Bu fonksiyon ile yaptığımız ölçümün alanını öğrenip istediğimiz yerde kullanabiliriz.
+  //Bunun dışında ölçüm yaparken farklı istekler için de "draw" fonksiyonundan faydalanabiliriz. 
   const drawEnd = (draw: Draw) => {
-    console.log(draw);
-
     draw.on('drawend', (event: any) => {
       const polygonArea = getArea(event.feature?.getGeometry());
-      console.log(polygonArea);
-
-      // setTextAfterDrawEnd(event, polygonArea)
     });
   }
 
 
 
-  //panolook için 
+  //panoramik görüntünün nerede olduğunu, bakış açısını vs. harita üzerinde de göstermek için bir canvas oluşturuyoruz ve bunu haritaya ekliyoruz.
+  //Bunu yapabilmek için openlayers kütüphanesinden yararlanıyoruz.
+  //Adımları takip ediniz. 
   useEffect(() => {
     if (olMap) {
 
@@ -380,12 +384,12 @@ function App() {
     }
   }, [angle])
 
+
   const mapClick = (event: any) => {
     const clickedCoordinate = event.coordinate;
     if (clickedCoordinate) {
       olMap.getView().setCenter(clickedCoordinate);
     }
-
   }
 
   const createCanvas = () => {
@@ -443,14 +447,15 @@ function App() {
   return (
     <div className="container">
 
-      <div className='PanoLook'></div>
-
 
       <div className="map-buttons">
+
+        {/* haritada ölçüm örneği */}
         <button onClick={drawPolygon}>Draw Polygon</button>
         <button onClick={openCloseMultiDisplay}>MultiDisplay</button>
       </div>
 
+      {/* panoramada ölçüm örnekleri */}
       <div className="pano-buttons">
         <button onClick={() => setPanoDrawType(PanoDrawStateTypes.POINT)}>Point</button>
         <button onClick={() => setPanoDrawType(PanoDrawStateTypes.LINESTRING)}>Line</button>
@@ -458,10 +463,16 @@ function App() {
         <button onClick={() => setPanoDrawType(PanoDrawStateTypes.CLEAR)}>Clear</button>
       </div>
 
+
       <div className='coordinate-container'>{coordinates}</div>
+
+
       <Splitter position="vertical" dispatchResize={true} postPoned={false}>
 
+        {/* haritayı oluşturmak için kullanılan div */}
         <div style={{ height: "100%", width: "100%" }} id="map"></div>
+
+
         <Splitter
           position="horizontal"
           primaryPaneMaxWidth="80%"
@@ -470,8 +481,13 @@ function App() {
           maximizedPrimaryPane={first}
           postPoned={false}
         >
+
+          {/* panorama için oluşturulmuş div */}
           <div id="panodiv"></div>
+
+
           <Splitter position="vertical">
+            {/* panoramada çoklu ekran oluşturabilmek için kullanılan div'ler */}
             <div id="panodiv2"></div>
             <div id="panodiv3"></div>
           </Splitter>
